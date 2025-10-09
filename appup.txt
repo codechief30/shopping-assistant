@@ -16,21 +16,32 @@ from transformers import pipeline as hf_pipeline_fn
 from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
 
-def create_llm(model_name="distilgpt2", max_tokens_small=150, max_tokens_large=300):
-    """Initializes and returns a HuggingFace LLM pipeline."""
-    if "distil" in model_name.lower() or "small" in model_name.lower():
-        max_new_tokens = max_tokens_small
-    else:
-        max_new_tokens = max_tokens_large
+from dotenv import load_dotenv
+import os
+from langchain_google_genai import ChatGoogleGenerativeAI
 
-    hf_pipe = hf_pipeline_fn(
-        task="text-generation",
-        model=model_name,
-        max_new_tokens=max_new_tokens,
-        do_sample=True,
-        temperature=0.3
-    )
-    return HuggingFacePipeline(pipeline=hf_pipe)
+# Load environment variables from .env file
+
+load_dotenv("abh.env")
+
+def create_llm(model_name="gemini-2.5-flash-lite", temperature=0.3):
+  """
+  Creates and configures a Google Gemini LLM instance.
+  """
+  # Check if the API key is available
+  #if "GOOGLE_API_KEY" not in os.environ:
+      #raise ValueError("Google API Key not found. Please set it in your .env file.")'''
+  
+  # Configure and return the Gemini model
+  llm = ChatGoogleGenerativeAI(
+      model=model_name,
+      temperature=temperature,
+      convert_system_message_to_human=True 
+  )
+  return llm
+
+# Create the new LLM instance
+llm = create_llm()
 
 # --- Data Models (from your script) ---
 @dataclass
@@ -240,12 +251,13 @@ class StartResponse(BaseModel):
 
 class RefineRequest(BaseModel):
     session_id: str
-    action: str = Field(..., example="reject", description="'reject' or 'show'")
-    value: str = Field(..., example="iPhone 9", description="Product title to reject or new search query")
+    action: str = Field(..., example="reject", description="'reject', 'show', or 'budget'")
+    value: str = Field(..., example="iPhone 9", description="Product title to reject, new search query, or new budget amount")
 
 class RefineResponse(BaseModel):
     products: List[ProductModel]
     recommendation: RecommendationModel
+    current_budget: float
 
 # --- API Endpoints ---
 @app.post("/start", response_model=StartResponse)
@@ -268,7 +280,7 @@ def start_session(request: StartRequest):
 
 @app.post("/refine", response_model=RefineResponse)
 def refine_session(request: RefineRequest):
-    """Refines an existing shopping session by rejecting an item or searching for more."""
+    """Refines an existing shopping session by rejecting an item, searching for more, or changing budget."""
     session_id = request.session_id
     if session_id not in SESSIONS:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -281,8 +293,18 @@ def refine_session(request: RefineRequest):
         session_memory.mark_rejected(request.value)
     elif request.action == "show":
         new_query = request.value
+    elif request.action == "budget":
+        try:
+            new_budget = float(request.value)
+            if new_budget <= 0:
+                raise HTTPException(status_code=400, detail="Budget must be a positive number")
+            BUDGETS[session_id] = new_budget
+            budget = new_budget
+            session_memory.add_log(f"Budget updated to ₹{new_budget}")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid budget value. Must be a number.")
     else:
-        raise HTTPException(status_code=400, detail="Invalid action. Use 'reject' or 'show'.")
+        raise HTTPException(status_code=400, detail="Invalid action. Use 'reject', 'show', or 'budget'.")
 
     products, recommendation = run_pipeline(session_memory, budget, LLM_INSTANCE, new_query=new_query)
 
@@ -290,8 +312,6 @@ def refine_session(request: RefineRequest):
 
     return RefineResponse(
         products=response_products,
-        recommendation=recommendation
+        recommendation=recommendation,
+        current_budget=budget
     )
-
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
