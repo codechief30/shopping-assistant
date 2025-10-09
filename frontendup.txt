@@ -19,7 +19,6 @@ def start_new_session(name: str, query: str, budget: float):
         st.session_state.session_id = data['session_id']
         st.session_state.products = data['products']
         st.session_state.recommendation = data['recommendation']
-        st.session_state.current_budget = budget
         st.session_state.error = None
     except requests.exceptions.RequestException as e:
         st.session_state.error = f"Could not connect to the backend: {e}"
@@ -39,7 +38,6 @@ def refine_current_session(action: str, value: str):
         data = response.json()
         st.session_state.products = data['products']
         st.session_state.recommendation = data['recommendation']
-        st.session_state.current_budget = data['current_budget']
         st.session_state.error = None
     except requests.exceptions.RequestException as e:
         st.session_state.error = f"Could not connect to the backend: {e}"
@@ -68,7 +66,7 @@ def display_products(products: List[Dict[str, Any]]):
     st.subheader("🛒 Product Suggestions")
     if not products:
         st.write("No products to display.")
-        return []
+        return
 
     for p in products:
         price = f"₹{p['avg_price']:.2f}" if p['avg_price'] is not None else "N/A"
@@ -92,16 +90,10 @@ if 'session_id' not in st.session_state:
         if submitted:
             with st.spinner("Assistant is thinking..."):
                 start_new_session(name, user_query, budget)
-                st.rerun()
 
 # --- Interactive Session View ---
 else:
     st.sidebar.header("Session Active")
-    
-    # Display current budget in sidebar
-    if 'current_budget' in st.session_state:
-        st.sidebar.metric("Current Budget", f"₹{st.session_state.current_budget:,.2f}")
-    
     if st.sidebar.button("End Session & Start New"):
         for key in list(st.session_state.keys()):
             del st.session_state[key]
@@ -126,7 +118,6 @@ else:
             if st.button("Reject this Product"):
                 with st.spinner("Updating recommendation..."):
                     refine_current_session(action="reject", value=product_to_reject)
-                    st.rerun()
         else:
             st.write("No products to reject.")
 
@@ -137,25 +128,5 @@ else:
             if new_query:
                 with st.spinner(f"Searching for '{new_query}'..."):
                     refine_current_session(action="show", value=new_query)
-                    st.rerun()
             else:
                 st.warning("Please enter a search query.")
-
-    # 3. Change budget - NEW FEATURE
-    with st.expander("💰 Change Your Budget"):
-        st.write(f"**Current Budget:** ₹{st.session_state.current_budget:,.2f}")
-        new_budget = st.number_input(
-            "Enter your new budget (₹):",
-            min_value=0.0,
-            value=st.session_state.current_budget,
-            step=1000.0,
-            key="new_budget_input"
-        )
-        if st.button("Update Budget"):
-            if new_budget != st.session_state.current_budget:
-                with st.spinner(f"Updating budget to ₹{new_budget:,.2f}..."):
-                    refine_current_session(action="budget", value=str(new_budget))
-                    st.success(f"Budget updated to ₹{new_budget:,.2f}!")
-                    st.rerun()
-            else:
-                st.info("New budget is the same as current budget.")

@@ -477,7 +477,10 @@ print(result)
 
 # Step 4: Interactive refinement loop
 while True:
-    user_feedback = input("\nWould you like to refine your request? (type 'reject <title>' or 'show <query>' or 'exit'): ")
+    user_feedback = input(
+        "\nWould you like to refine your request? "
+        "(type 'reject <title>', 'show <query>', 'edit budget', or 'exit'): "
+    )
 
     if user_feedback.lower().startswith("reject "):
         title = user_feedback[7:].strip()
@@ -497,6 +500,22 @@ while True:
         for p in products:
             print(f"- {p.title} | Avg Price: ₹{p.average_price()} | Avg Rating: {p.average_rating()}")
         print("\nCurrent Recommendation:", result)
+
+    elif user_feedback.lower() == "edit budget":
+        try:
+            new_budget = float(input("Enter your new budget (₹): "))
+            budget = new_budget
+            coordinator = CoordinatorAgent(session_memory, llm, budget)
+            products, result = shopping_assistant_pipeline(user_query, budget)
+            print("\nBudget updated successfully ✅")
+            print(f"New Budget: ₹{budget}")
+            print("\nHere are the updated product suggestions:")
+            for p in products:
+                print(f"- {p.title} | Avg Price: ₹{p.average_price()} | Avg Rating: {p.average_rating()}")
+            print("\nUpdated Recommendation:", result)
+        except ValueError:
+            print("❌ Invalid input. Please enter a valid number for the budget.")
+
 
 
 

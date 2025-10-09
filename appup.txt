@@ -240,13 +240,12 @@ class StartResponse(BaseModel):
 
 class RefineRequest(BaseModel):
     session_id: str
-    action: str = Field(..., example="reject", description="'reject', 'show', or 'budget'")
-    value: str = Field(..., example="iPhone 9", description="Product title to reject, new search query, or new budget amount")
+    action: str = Field(..., example="reject", description="'reject' or 'show'")
+    value: str = Field(..., example="iPhone 9", description="Product title to reject or new search query")
 
 class RefineResponse(BaseModel):
     products: List[ProductModel]
     recommendation: RecommendationModel
-    current_budget: float
 
 # --- API Endpoints ---
 @app.post("/start", response_model=StartResponse)
@@ -269,7 +268,7 @@ def start_session(request: StartRequest):
 
 @app.post("/refine", response_model=RefineResponse)
 def refine_session(request: RefineRequest):
-    """Refines an existing shopping session by rejecting an item, searching for more, or changing budget."""
+    """Refines an existing shopping session by rejecting an item or searching for more."""
     session_id = request.session_id
     if session_id not in SESSIONS:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -282,18 +281,8 @@ def refine_session(request: RefineRequest):
         session_memory.mark_rejected(request.value)
     elif request.action == "show":
         new_query = request.value
-    elif request.action == "budget":
-        try:
-            new_budget = float(request.value)
-            if new_budget <= 0:
-                raise HTTPException(status_code=400, detail="Budget must be a positive number")
-            BUDGETS[session_id] = new_budget
-            budget = new_budget
-            session_memory.add_log(f"Budget updated to ₹{new_budget}")
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid budget value. Must be a number.")
     else:
-        raise HTTPException(status_code=400, detail="Invalid action. Use 'reject', 'show', or 'budget'.")
+        raise HTTPException(status_code=400, detail="Invalid action. Use 'reject' or 'show'.")
 
     products, recommendation = run_pipeline(session_memory, budget, LLM_INSTANCE, new_query=new_query)
 
@@ -301,8 +290,7 @@ def refine_session(request: RefineRequest):
 
     return RefineResponse(
         products=response_products,
-        recommendation=recommendation,
-        current_budget=budget
+        recommendation=recommendation
     )
 
 if __name__ == "__main__":
