@@ -15,7 +15,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 
 # Use Streamlit's caching to load the model only once
 @st.cache_resource
-def create_llm(model_name="gemini-pro", temperature=0.4):
+def create_llm(model_name="gemini-2.5-flash-lite", temperature=0.4):
     """
     Creates and configures a Google Gemini LLM instance using the API key
     from Streamlit's secrets management.
