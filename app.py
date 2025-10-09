@@ -29,8 +29,8 @@ def create_llm(model_name="gemini-2.5-flash-lite", temperature=0.3):
   Creates and configures a Google Gemini LLM instance.
   """
   # Check if the API key is available
-  '''if "GOOGLE_API_KEY" not in os.environ:
-      raise ValueError("Google API Key not found. Please set it in your .env file.")'''
+  #if "GOOGLE_API_KEY" not in os.environ:
+      #raise ValueError("Google API Key not found. Please set it in your .env file.")'''
   
   # Configure and return the Gemini model
   llm = ChatGoogleGenerativeAI(
