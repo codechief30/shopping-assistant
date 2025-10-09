@@ -16,21 +16,32 @@ from transformers import pipeline as hf_pipeline_fn
 from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
 
-def create_llm(model_name="distilgpt2", max_tokens_small=150, max_tokens_large=300):
-    """Initializes and returns a HuggingFace LLM pipeline."""
-    if "distil" in model_name.lower() or "small" in model_name.lower():
-        max_new_tokens = max_tokens_small
-    else:
-        max_new_tokens = max_tokens_large
+from dotenv import load_dotenv
+import os
+from langchain_google_genai import ChatGoogleGenerativeAI
 
-    hf_pipe = hf_pipeline_fn(
-        task="text-generation",
-        model=model_name,
-        max_new_tokens=max_new_tokens,
-        do_sample=True,
-        temperature=0.3
-    )
-    return HuggingFacePipeline(pipeline=hf_pipe)
+# Load environment variables from .env file
+
+load_dotenv("/Users/abhinavchaudhary/Documents/Personal/Programming/Shopping Assistant UI/abh.env")
+
+def create_llm(model_name="gemini-2.5-flash-lite", temperature=0.3):
+  """
+  Creates and configures a Google Gemini LLM instance.
+  """
+  # Check if the API key is available
+  if "GOOGLE_API_KEY" not in os.environ:
+      raise ValueError("Google API Key not found. Please set it in your .env file.")
+  
+  # Configure and return the Gemini model
+  llm = ChatGoogleGenerativeAI(
+      model=model_name,
+      temperature=temperature,
+      convert_system_message_to_human=True 
+  )
+  return llm
+
+# Create the new LLM instance
+llm = create_llm()
 
 # --- Data Models (from your script) ---
 @dataclass
